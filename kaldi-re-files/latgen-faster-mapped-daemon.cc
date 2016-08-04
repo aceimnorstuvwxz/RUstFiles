@@ -96,6 +96,7 @@ void payload_init(int argc, char *argv[])
     po.Read(argc, argv);
 
     if (po.NumArgs() < 4 || po.NumArgs() > 6) {
+      printf("numargs %d", po.NumArgs());
       po.PrintUsage();
       exit(1);
     }
@@ -110,12 +111,13 @@ void payload_init(int argc, char *argv[])
     ReadKaldiObject(model_in_filename, &trans_model);
 
     determinize = config.determinize_lattice;
+    /*
     CompactLatticeWriter compact_lattice_writer;
     LatticeWriter lattice_writer;
     if (! (determinize ? compact_lattice_writer.Open(lattice_wspecifier)
            : lattice_writer.Open(lattice_wspecifier)))
       KALDI_ERR << "Could not open table for writing lattices: "
-                 << lattice_wspecifier;
+                 << lattice_wspecifier;*/
 
     Int32VectorWriter words_writer(words_wspecifier);
 
