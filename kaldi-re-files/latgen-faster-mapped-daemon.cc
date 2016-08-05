@@ -135,6 +135,8 @@ void payload_init(int argc, char *argv[])
     decode_fst = fst::ReadFstKaldi(fst_in_str);
     double loadElapsed = loadTimer.Elapsed();
     KALDI_LOG << "[dgk] load done, Time taken "<< loadElapsed;
+    KALDI_LOG << "[dgk] ready!";
+
 
 
 
@@ -175,9 +177,35 @@ std::vector<std::string> dgk_parse_arg(char * seq)
       rets.push_back(std::string(&(seq[s])));
     }
 
+    i++;
   }
   return rets;
 }
+
+/*引号风格的参数提取  "para mmm1" "sdfdf sdfd" 提取的不包含引号*/
+std::vector<std::string> dgk_qua_arg(char * seq)
+{
+  std::vector<std::string> rets;
+  int i = 0;
+  bool out = true;
+  int s = 0;
+
+  while(seq[i] != 0) {
+    if (seq[i] == '"' && out) {
+      s = i+1;
+      out = false;
+    } else if (seq[i] == '"' && !out) {
+      seq[i] = 0;
+      out = true;
+      rets.push_back(std::string(&(seq[s])));
+    }
+
+    i++;
+  }
+  return rets;
+
+}
+
 
 int payload_run(char * seq)
 {
@@ -194,15 +222,22 @@ try {
     int num_success = 0, num_fail = 0;
     Timer timer;
 
+    KALDI_LOG << "payload run";
 
-    std::vector<std::string> args = dgk_parse_arg(seq);
+    std::vector<std::string> args = dgk_qua_arg(seq);
     std::string feature_rspecifier = args[0];
     std::string lattice_wspecifier = args[1];
-    std::string words_wspecifier = args[2];
-    std::string alignment_wspecifier = args[3];
+
+    KALDI_LOG << "feature=" << feature_rspecifier;
+    KALDI_LOG << "lattice=" << lattice_wspecifier;
+
+    std::string words_wspecifier = "";
+    std::string alignment_wspecifier = "";
 
     CompactLatticeWriter compact_lattice_writer;
     LatticeWriter lattice_writer;
+
+    KALDI_LOG << "payload run";
     
     if (! (determinize ? compact_lattice_writer.Open(lattice_wspecifier)
            : lattice_writer.Open(lattice_wspecifier)))
@@ -268,7 +303,7 @@ try {
 
 ////////////////////////////////////libevent based server code///////////////////////////////////////////////
 
-#define SERVER_PORT 8080
+#define SERVER_PORT 30001
 int debug = 0;
 
 struct client {
@@ -297,9 +332,12 @@ void buf_read_callback(struct bufferevent *incoming,
   req = evbuffer_readline(incoming->input);
   if (req == NULL)
     return;
+  KALDI_LOG << "[dgk] recv " << req;
 
   
   ret = payload_run(req);/*负载 接受字符串参数，而返回Int*/
+
+  KALDI_LOG << "[dgk] send " << "ret" << ret;
 
   evreturn = evbuffer_new();
   evbuffer_add_printf(evreturn,"ret%d\n",ret);
