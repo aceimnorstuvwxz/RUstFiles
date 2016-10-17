@@ -240,7 +240,11 @@ def loadLat(latf):
 def saveLat(lat, fn):
     pass
 
-def rescoreLat(lat, kw):
+def rescoreLat(lat, state, kwspy, kwstat):
+    '''
+    kwstat [ [0,9] ] 表示kwspy中   .... 是kw检索的状态
+    考虑 多字词， 状态什么的 , 在仔细设计
+    '''
     pass
 
 
@@ -249,7 +253,8 @@ def lka(inlat, outlat, kws):
     latin = loadLat(inlat)
 
     for kw in kws:
-        rescoreLat(latin, kw)
+        kwspy = kw2simplePinyin(kw)
+        rescoreLat(latin, 0, kwspy, [)
 
     saveLat(latin, outlat)
 
