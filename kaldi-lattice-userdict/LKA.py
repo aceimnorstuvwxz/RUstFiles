@@ -210,22 +210,58 @@ def load_lexicon_dict():
 			gLexiconDict[k] = v
 
 
+def loadLat(latf):
+    states = {}
+    with open(latf, 'r') as f:
+        lines = f.readlines()[1:] #去掉第一行的标题
+        for l in lines:
+            l = l[:-1] #去掉\n
+            if len(l) < 1:
+                continue
+            ww = l.split('\t')
+            # print ww
+            start = int(ww[0])
+            if len(ww) < 4:
+                states[start] = {}
+            else:
+                des = int(ww[1])
+                content = {}
+                content['wordid'] = int(ww[2])
+                lefts = ww[3].split(',')
+                content['amscore'] = float(lefts[0])
+                content['lmscore'] = float(lefts[1])
+                content['aligns'] = lefts[2]
+                if not states.has_key(start):
+                    states[start] = {}
+                
+                states[start][des] = content
+    return states
+            
+def saveLat(lat, fn):
+    pass
+
+def rescoreLat(lat, kw):
+    pass
+
+
+def lka(inlat, outlat, kws):
+    print inlat, outlat, kws
+    latin = loadLat(inlat)
+
+    for kw in kws:
+        rescoreLat(latin, kw)
+
+    saveLat(latin, outlat)
 
 if __name__ == "__main__":
-    USAGE = 'lattice-id2word.py input.fn output.fn'
+    USAGE = 'lka.py input.lat output.lat kw0 kw1 kw2 kw3 ...'
+    if len(sys.argv) < 4:
+        print USAGE
+    else:
+        load_lexicon_dict()
 
-    load_lexicon_dict()
+        lka(sys.argv[1], sys.argv[2], sys.argv[3:])
+
     # showUniqueShengmu()
 
 
-
-    ws = userSegment2words(u'你好啊我的哥浙江')
-    for w in ws:
-        fpy =  word2fullPinyin(w)
-        spy = fullPinyin2simplePinyin(fpy)
-        print fpy, spy
-
-    # if len(sys.argv) != 3:
-        # print USAGE
-    # else:
-        # id2word(sys.argv[1], sys.argv[2])
