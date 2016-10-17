@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+#lattice-id2word.py 可以text版本的lattice中的word-id转成 汉字。
 
 import sys
 
