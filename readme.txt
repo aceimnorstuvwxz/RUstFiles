@@ -7,8 +7,9 @@ Content:
     kaldi-re-files: files diff from current ASR system
         backup place until Own kaldi Git repo
 
-    kaldi-lattice-CAWP: User Dict feature based on 
+    kaldi-lattice-userdict: User Dictionary feature based on 
         Kaldi's lattice Cost Adjust and Word Proxy(CAWP)
+        New Solution: LKATPM LatticeKeywordAlign TextPhoneMapping.
 
     Far-field-test: far field audio capture algo test staff
 
