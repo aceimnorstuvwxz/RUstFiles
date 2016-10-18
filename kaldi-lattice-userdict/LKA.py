@@ -11,7 +11,7 @@ import datetime
 
 gWordMap = {}
 
-AMSCORE_IMPROVE_STEP = 10.0 #lat rescore时，arc的声学提高幅度
+AMSCORE_IMPROVE_STEP = 3.0 #lat rescore时，arc的声学提高幅度
 KW_EARLY_STOP_THRESH = 20000 #当一个kw符合的次数超过一定量之后，就pass了。 only for lka
 
 with open('words.txt', 'r') as wordsf:
@@ -117,7 +117,7 @@ gYunmuMap = {
 'ie':'ie',
 'er':'er',
 'iao':'iao',
-'ian':'ian',
+'ian':'ian',#
 'van':'van',
 'eng':'en',#
 'iang':'iang',
@@ -419,7 +419,7 @@ def latBatchImprove(lat):
         for desState, arcObj in desObj.iteritems():
             imp = arcObj['improve']
             if imp > 0:
-                arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP*len(wordId2word(arcObj['wordid'])) #不同长度不同比重，不然会趋向于 散的词
+                arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP*((len(wordId2word(arcObj['wordid'])))**2) #不同长度不同比重，不然会趋向于 散的词
                 print 'improve', srcState, desState, wordId2word(arcObj['wordid']), imp
 
 def lka2(inlat, outlat, kws):
