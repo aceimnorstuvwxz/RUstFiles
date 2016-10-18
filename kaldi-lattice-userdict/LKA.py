@@ -12,7 +12,7 @@ import datetime
 gWordMap = {}
 
 AMSCORE_IMPROVE_STEP = 10.0 #lat rescore时，arc的声学提高幅度
-KW_EARLY_STOP_THRESH = 20000 #当一个kw符合的次数超过一定量之后，就pass了。
+KW_EARLY_STOP_THRESH = 20000 #当一个kw符合的次数超过一定量之后，就pass了。 only for lka
 
 with open('words.txt', 'r') as wordsf:
     lines = wordsf.readlines()
@@ -261,13 +261,24 @@ def loadLat(latf):
     return states
             
 def saveLat(lat, fn):
-    pass
+    with open(fn, 'w') as f:
+        f.write('T00_001\n')
+        for srcState, desObj in lat.iteritems():
+            if len(desObj) < 1:
+                f.write('%d\n' % srcState)
+            else:
+                items = desObj.items()
+                items.sort()
+                for desState, arcObj in items:
+                    l = "%d\t%d\t%d\t%f,%f,%s\n" %(srcState, desState, arcObj['wordid'], arcObj['amscore'], arcObj['lmscore'], arcObj['aligns'])
+                    f.write(l)
+                
+                
 
-gHitTime = 0
+
+
 def rescoreLat(lat, state, kwobj, kwstat):
     # print "visit lat", state, kwspy, kwstat
-    global gHitTime
-    gHitTime = gHitTime + 1
 
     #early stop
     if kwobj['n'] > KW_EARLY_STOP_THRESH:
@@ -325,11 +336,8 @@ def rescoreLat(lat, state, kwobj, kwstat):
     return preImproveLen
 
 
-                    
-    
-
-
 def lka(inlat, outlat, kws):
+    '''直接在state图上遍历，很慢，比lka2慢10x'''
     print inlat, outlat, kws
     now = datetime.datetime.now()
     latin = loadLat(inlat)
@@ -351,6 +359,86 @@ def lka(inlat, outlat, kws):
     now = datetime.datetime.now()
     print 'savelat', delta
 
+
+
+
+def latNetSearch(lat, state, kwspy, kwpos):
+    currentStatObj = lat[state]
+    preImproveLen = 0
+
+    for nextStat, nextStatObj in currentStatObj.iteritems():
+        
+        needImproveThisArc = False
+        arcspy = wordId2simplePinyin(nextStatObj['wordid'])
+
+        if simplePinyinComp(kwspy[kwpos:], arcspy):
+            new_kw_pos = kwpos + len(arcspy)
+
+            if new_kw_pos >= len(kwspy):
+                needImproveThisArc = True
+                preImproveLen = max(preImproveLen, kwpos)
+            else:
+                ret = latNetSearch(lat, nextStat, kwspy, new_kw_pos)
+                if ret > 0:
+                    needImproveThisArc = True
+                    preImproveLen = max(preImproveLen, ret - len(arcspy))
+        
+        if needImproveThisArc:
+            nextStatObj['improve'] = nextStatObj['improve'] + 1
+            # print 'improve', state, nextStat, wordId2word(nextStatObj['wordid'])
+        
+    return preImproveLen
+
+
+def arcSearch(lat, kwspy):
+    '''先直接在arc序列上遍历，出现部分match之后，再到lat state net上核实'''
+    for srcState, desObj in lat.iteritems():
+        for desState, arcObj in desObj.iteritems():
+            #arc 的spy
+            arcSpy =  wordId2simplePinyin(arcObj['wordid'])
+            needImproveThisArc = False
+            if simplePinyinComp(kwspy, arcSpy): #simplePyinComp的情况同上解释
+                #如果在arc的遍历中出现了部分的Match，转到lat state上运行
+                if len(kwspy) <= len(arcSpy):
+                    #该arc的word已经cover了kw， kw: abc arc:abcde
+                    #就不需要再去lat state net上了
+                    needImproveThisArc = True
+                else:
+                    leftn = latNetSearch(lat, desState, kwspy, len(arcSpy))
+                    if leftn > 0:
+                        needImproveThisArc = True
+            
+            if needImproveThisArc:
+                arcObj['improve'] = arcObj['improve'] + 1
+                # print 'improve', srcState, desState, wordId2word(arcObj['wordid'])
+
+def latBatchImprove(lat):
+    '''对每个arc，针对improve的值的大小，进行rescoring'''
+    for srcState, desObj in lat.iteritems():
+        for desState, arcObj in desObj.iteritems():
+            imp = arcObj['improve']
+            if imp > 0:
+                arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP
+                # print 'improve', wordId2word(arcObj['wordid']), imp
+
+def lka2(inlat, outlat, kws):
+    print 'lka2', inlat, outlat, kws
+    lat = loadLat(inlat)
+
+    now = datetime.datetime.now()
+
+    for kw in kws:
+        kwspy = text2simplePinyin(kw)
+        arcSearch(lat, kwspy)
+    
+    latBatchImprove(lat)
+
+    delta = datetime.datetime.now() - now
+    now = datetime.datetime.now()
+    print 'arcSearch', delta
+
+    saveLat(lat, outlat)
+
 if __name__ == "__main__":
     load_lexicon_dict()
 
@@ -362,8 +450,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print USAGE
     else:
-        lka(sys.argv[1], sys.argv[2], sys.argv[3:])
-        print gHitTime
+        # lka(sys.argv[1], sys.argv[2], sys.argv[3:])
+        lka2(sys.argv[1], sys.argv[2], sys.argv[3:])
+
         
         pass
     # showUniqueShengmu()
