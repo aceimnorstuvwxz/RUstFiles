@@ -12,7 +12,7 @@ import datetime
 gWordMap = {}
 
 AMSCORE_IMPROVE_STEP = 10.0 #lat rescore时，arc的声学提高幅度
-KW_MATCH_EARLY_STOP_THRESH = 20 #当一个kw符合的次数超过一定量之后，就pass了。
+KW_EARLY_STOP_THRESH = 20000 #当一个kw符合的次数超过一定量之后，就pass了。
 
 with open('words.txt', 'r') as wordsf:
     lines = wordsf.readlines()
@@ -263,9 +263,17 @@ def loadLat(latf):
 def saveLat(lat, fn):
     pass
 
-def rescoreLat(lat, state, kwspy, kwstat):
+gHitTime = 0
+def rescoreLat(lat, state, kwobj, kwstat):
     # print "visit lat", state, kwspy, kwstat
-    
+    global gHitTime
+    gHitTime = gHitTime + 1
+
+    #early stop
+    if kwobj['n'] > KW_EARLY_STOP_THRESH:
+        return 0
+
+    kwspy = kwobj['kwspy']
     currentStat = lat[state]
     preImproveLen = 0
 
@@ -291,6 +299,9 @@ def rescoreLat(lat, state, kwspy, kwstat):
                     #如果这个kw不再有剩余，那么这个kw就完全hit了
                     needImproveThisArc = True #本arc要提升
                     preImproveLen = max(preImproveLen, pystart_pos) #之前还有要一些提升
+                    kwobj['n'] = kwobj['n'] + 1
+                    # global gHitTime
+                    # gHitTime = gHitTime + 1
                 
                 else:
                     #还没有完全hit，要接下来继续比较
@@ -300,7 +311,7 @@ def rescoreLat(lat, state, kwspy, kwstat):
                 pass
         
         #对arc之后的
-        ret = rescoreLat(lat, nextStat, kwspy, nextKwStat)
+        ret = rescoreLat(lat, nextStat, kwobj, nextKwStat)
         if needImproveThisArc or ret > 0:
             #本层要求或者之后面的要求 提升本arc
             # nextStatParam['amscore'] = nextStatParam['amscore'] - AMSCORE_IMPROVE_STEP
@@ -320,13 +331,25 @@ def rescoreLat(lat, state, kwspy, kwstat):
 
 def lka(inlat, outlat, kws):
     print inlat, outlat, kws
+    now = datetime.datetime.now()
     latin = loadLat(inlat)
+    delta = datetime.datetime.now() - now
+    now = datetime.datetime.now()
+    print 'loadlat', delta
 
     for kw in kws:
         kwspy = text2simplePinyin(kw)
-        rescoreLat(latin, 0, kwspy, [0])
+        rescoreLat(latin, 0, {'kwspy':kwspy,'n': 0}, [0])
+
+    delta = datetime.datetime.now() - now
+    now = datetime.datetime.now()
+    print 'rescore', delta
 
     saveLat(latin, outlat)
+
+    delta = datetime.datetime.now() - now
+    now = datetime.datetime.now()
+    print 'savelat', delta
 
 if __name__ == "__main__":
     load_lexicon_dict()
@@ -339,10 +362,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print USAGE
     else:
-        now = datetime.datetime.now()
         lka(sys.argv[1], sys.argv[2], sys.argv[3:])
-        here = datetime.datetime.now() - now
-        print here
+        print gHitTime
+        
         pass
     # showUniqueShengmu()
 
