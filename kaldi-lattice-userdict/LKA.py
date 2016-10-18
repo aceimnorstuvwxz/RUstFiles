@@ -418,8 +418,8 @@ def latBatchImprove(lat):
         for desState, arcObj in desObj.iteritems():
             imp = arcObj['improve']
             if imp > 0:
-                arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP
-                # print 'improve', wordId2word(arcObj['wordid']), imp
+                arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP*len(wordId2word(arcObj['wordid'])) #不同长度不同比重，不然会趋向于 散的词
+                print 'improve', srcState, desState, wordId2word(arcObj['wordid']), imp
 
 def lka2(inlat, outlat, kws):
     print 'lka2', inlat, outlat, kws
