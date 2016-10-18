@@ -7,8 +7,12 @@ LKATPM: LatticeKeywordAlign TextPhoneMapping
 
 import sys
 import jieba
+import datetime
 
 gWordMap = {}
+
+AMSCORE_IMPROVE_STEP = 10.0 #lat rescore时，arc的声学提高幅度
+KW_MATCH_EARLY_STOP_THRESH = 20 #当一个kw符合的次数超过一定量之后，就pass了。
 
 with open('words.txt', 'r') as wordsf:
     lines = wordsf.readlines()
@@ -199,7 +203,6 @@ def showUniqueShengmu():
             
 def wordId2word(wordid):
     '''wordid string'''
-    print gWordMap[wordid]
     return gWordMap[wordid]
 
 def wordId2simplePinyin(wordid):
@@ -250,6 +253,7 @@ def loadLat(latf):
                 content['amscore'] = float(lefts[0])
                 content['lmscore'] = float(lefts[1])
                 content['aligns'] = lefts[2]
+                content['improve'] = 0
                 if not states.has_key(start):
                     states[start] = {}
                 
@@ -260,7 +264,7 @@ def saveLat(lat, fn):
     pass
 
 def rescoreLat(lat, state, kwspy, kwstat):
-    print "visit lat", state, kwspy, kwstat
+    # print "visit lat", state, kwspy, kwstat
     
     currentStat = lat[state]
     preImproveLen = 0
@@ -299,8 +303,10 @@ def rescoreLat(lat, state, kwspy, kwstat):
         ret = rescoreLat(lat, nextStat, kwspy, nextKwStat)
         if needImproveThisArc or ret > 0:
             #本层要求或者之后面的要求 提升本arc
-            #TODO 提升本arc
-            print "lat improve", state, nextStat, wordId2word(nextStatParam['wordid'])
+            # nextStatParam['amscore'] = nextStatParam['amscore'] - AMSCORE_IMPROVE_STEP
+            nextStatParam['improve'] = nextStatParam['improve'] + 1
+            #print "lat improve", state, nextStat, wordId2word(nextStatParam['wordid']), nextStatParam['improve']
+            
             retleft = ret - len(wordspy)
             preImproveLen = max(preImproveLen, retleft)
     
@@ -333,7 +339,10 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print USAGE
     else:
+        now = datetime.datetime.now()
         lka(sys.argv[1], sys.argv[2], sys.argv[3:])
+        here = datetime.datetime.now() - now
+        print here
         pass
     # showUniqueShengmu()
 
