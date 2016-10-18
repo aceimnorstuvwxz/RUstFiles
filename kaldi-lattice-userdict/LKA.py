@@ -209,10 +209,11 @@ def wordId2simplePinyin(wordid):
     return fullPinyin2simplePinyin(word2fullPinyin(wordId2word(wordid)))
 
 def simplePinyinComp(kwspy, wordspy):
-    #头部是对齐match的，允许wordspy的长度超过kwspy
-    #比如 abc  abcd
-    minlen = min(len(kwspy), len(wordspy))
-    for p in xrange(minlen):
+    #头部是对齐match的，允许wordspy的长度超过kwspy #更正 不允许
+
+    if len(kwspy) < len(wordspy):
+        return False
+    for p in xrange(len(wordspy)):
         if kwspy[p] != wordspy[p]:
             return False
     
