@@ -262,6 +262,7 @@ def loadLat(latf):
     return states
             
 def saveLat(lat, fn):
+    print "saveLat", fn
     with open(fn, 'w') as f:
         f.write('T00_001\n')
         for srcState, desObj in lat.iteritems():
