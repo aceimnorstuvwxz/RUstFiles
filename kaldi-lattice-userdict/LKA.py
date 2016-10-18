@@ -13,8 +13,9 @@ gWordMap = {}
 with open('words.txt', 'r') as wordsf:
     lines = wordsf.readlines()
     for l in lines:
+        l = l.decode('utf-8')
         segs = l.split(' ')
-        gWordMap[segs[1][:-1]] = segs[0] #remove \n
+        gWordMap[int(segs[1][:-1])] = segs[0] #remove \n
     print "load word map", len(gWordMap)
 
 
@@ -159,7 +160,12 @@ def fullPinyin2simplePinyin(pinyinlist):
         ret.append(sm + ym) #去掉声调数字
     return ret
 
-
+def text2simplePinyin(text):
+    ret = []
+    ww = userSegment2words(text)
+    for w in ww:
+        ret.extend(fullPinyin2simplePinyin(word2fullPinyin(w)))
+    return ret
 
 def showUniqueShengmu():
     '''查看 声母 韵母 表'''
@@ -193,7 +199,11 @@ def showUniqueShengmu():
             
 def wordId2word(wordid):
     '''wordid string'''
+    print gWordMap[wordid]
     return gWordMap[wordid]
+
+def wordId2simplePinyin(wordid):
+    return fullPinyin2simplePinyin(word2fullPinyin(wordId2word(wordid)))
 
 
 
@@ -241,11 +251,32 @@ def saveLat(lat, fn):
     pass
 
 def rescoreLat(lat, state, kwspy, kwstat):
-    '''
-    kwstat [ [0,9] ] 表示kwspy中   .... 是kw检索的状态
-    考虑 多字词， 状态什么的 , 在仔细设计
-    '''
-    pass
+    print "visit lat", state, kwspy, kwstat
+    
+    currentStat = lat[state]
+    preImproveLen = 0
+
+    #对每个arc进行处理
+    for nextStat in currentStat.keys():
+        nextStatParam = currentStat[nextStat]
+        
+        #arc的spinyin
+        wordspy = wordId2simplePinyin(nextStatParam['wordid']) 
+        
+        #在kwstat下，arc的spinyin与kwspy进行计算
+        for pystart_pos in kwstat:
+            if simplePinyinComp(kwspy[pystart_pos:], wordspy):
+                new_pystart_pos = pystart_pos + len(wordspy)
+                
+                if new_pystart_pos >= len(kwspy):
+                    #如果对于一个kwstat的position与wordspy 符合了
+                    #如果这个kw不再有剩余，那么这个kw就完全hit了
+                    pass
+                
+                else:
+                    #还没有完全hit，要接下来继续比较
+                    pass
+    
 
 
 def lka(inlat, outlat, kws):
@@ -253,18 +284,21 @@ def lka(inlat, outlat, kws):
     latin = loadLat(inlat)
 
     for kw in kws:
-        kwspy = kw2simplePinyin(kw)
-        rescoreLat(latin, 0, kwspy, [)
+        kwspy = text2simplePinyin(kw)
+        rescoreLat(latin, 0, kwspy, [])
 
     saveLat(latin, outlat)
 
 if __name__ == "__main__":
+    load_lexicon_dict()
+
+    print text2simplePinyin(u'你好啊我的哥哥')
+    print wordId2simplePinyin(18137)
+
     USAGE = 'lka.py input.lat output.lat kw0 kw1 kw2 kw3 ...'
     if len(sys.argv) < 4:
         print USAGE
     else:
-        load_lexicon_dict()
-
         lka(sys.argv[1], sys.argv[2], sys.argv[3:])
 
     # showUniqueShengmu()
