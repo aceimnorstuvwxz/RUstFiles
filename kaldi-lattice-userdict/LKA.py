@@ -205,6 +205,15 @@ def wordId2word(wordid):
 def wordId2simplePinyin(wordid):
     return fullPinyin2simplePinyin(word2fullPinyin(wordId2word(wordid)))
 
+def simplePinyinComp(kwspy, wordspy):
+    #头部是对齐match的，允许wordspy的长度超过kwspy
+    #比如 abc  abcd
+    minlen = min(len(kwspy), len(wordspy))
+    for p in xrange(minlen):
+        if kwspy[p] != wordspy[p]:
+            return False
+    
+    return True
 
 
 #音素
@@ -260,22 +269,46 @@ def rescoreLat(lat, state, kwspy, kwstat):
     for nextStat in currentStat.keys():
         nextStatParam = currentStat[nextStat]
         
+        needImproveThisArc = False
+        nextKwStat = [0]
+
         #arc的spinyin
         wordspy = wordId2simplePinyin(nextStatParam['wordid']) 
         
         #在kwstat下，arc的spinyin与kwspy进行计算
         for pystart_pos in kwstat:
-            if simplePinyinComp(kwspy[pystart_pos:], wordspy):
+            if simplePinyinComp(kwspy[pystart_pos:], wordspy): 
+                #[IMPORTANT]不考虑，word的尾与kw的前部Match的情况，主要考虑后缀match的时间花费大
+                #支持 abc  abcd   不支持 abcd ffffabc这种在pystart_pos==0时应该支持得尾部部分match。
                 new_pystart_pos = pystart_pos + len(wordspy)
                 
                 if new_pystart_pos >= len(kwspy):
                     #如果对于一个kwstat的position与wordspy 符合了
                     #如果这个kw不再有剩余，那么这个kw就完全hit了
-                    pass
+                    needImproveThisArc = True #本arc要提升
+                    preImproveLen = max(preImproveLen, pystart_pos) #之前还有要一些提升
                 
                 else:
                     #还没有完全hit，要接下来继续比较
-                    pass
+                    nextKwStat.append(new_pystart_pos)
+            else:
+                #不match，则废了
+                pass
+        
+        #对arc之后的
+        ret = rescoreLat(lat, nextStat, kwspy, nextKwStat)
+        if needImproveThisArc or ret > 0:
+            #本层要求或者之后面的要求 提升本arc
+            #TODO 提升本arc
+            print "lat improve", state, nextStat, wordId2word(nextStatParam['wordid'])
+            retleft = ret - len(wordspy)
+            preImproveLen = max(preImproveLen, retleft)
+    
+    #告诉上层，还需要提升多少长度
+    return preImproveLen
+
+
+                    
     
 
 
@@ -285,7 +318,7 @@ def lka(inlat, outlat, kws):
 
     for kw in kws:
         kwspy = text2simplePinyin(kw)
-        rescoreLat(latin, 0, kwspy, [])
+        rescoreLat(latin, 0, kwspy, [0])
 
     saveLat(latin, outlat)
 
@@ -294,13 +327,14 @@ if __name__ == "__main__":
 
     print text2simplePinyin(u'你好啊我的哥哥')
     print wordId2simplePinyin(18137)
+    print simplePinyinComp([u'a',u'b', u'd'],[u'a',u'b',u'c'])
 
     USAGE = 'lka.py input.lat output.lat kw0 kw1 kw2 kw3 ...'
     if len(sys.argv) < 4:
         print USAGE
     else:
         lka(sys.argv[1], sys.argv[2], sys.argv[3:])
-
+        pass
     # showUniqueShengmu()
 
 
