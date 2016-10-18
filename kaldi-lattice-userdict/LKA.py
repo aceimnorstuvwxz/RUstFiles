@@ -232,6 +232,7 @@ def load_lexicon_dict():
 			k, v= c[0:k], c[k+1:-1] #-1去掉换行
 			gLexiconDict[k] = v
 
+STOP_DES_ID = 9999
 
 def loadLat(latf):
     states = {}
@@ -245,7 +246,9 @@ def loadLat(latf):
             # print ww
             start = int(ww[0])
             if len(ww) < 4:
-                states[start] = {}
+                if not states.has_key(start):
+                    states[start] = {}
+                states[start][STOP_DES_ID] = {}
             else:
                 des = int(ww[1])
                 content = {}
@@ -255,6 +258,7 @@ def loadLat(latf):
                 content['lmscore'] = float(lefts[1])
                 content['aligns'] = lefts[2]
                 content['improve'] = 0
+                
                 if not states.has_key(start):
                     states[start] = {}
                 
@@ -272,8 +276,12 @@ def saveLat(lat, fn):
                 items = desObj.items()
                 items.sort()
                 for desState, arcObj in items:
-                    l = "%d\t%d\t%d\t%f,%f,%s\n" %(srcState, desState, arcObj['wordid'], arcObj['amscore'], arcObj['lmscore'], arcObj['aligns'])
-                    f.write(l)
+                    if desState == STOP_DES_ID:
+                        l = "%d\n" %(srcState)
+                        f.write(l)
+                    else:
+                        l = "%d\t%d\t%d\t%f,%f,%s\n" %(srcState, desState, arcObj['wordid'], arcObj['amscore'], arcObj['lmscore'], arcObj['aligns'])
+                        f.write(l)
                 
                 
 
@@ -369,6 +377,8 @@ def latNetSearch(lat, state, kwspy, kwpos):
     preImproveLen = 0
 
     for nextStat, nextStatObj in currentStatObj.iteritems():
+        if nextStat == STOP_DES_ID:
+            continue
         
         needImproveThisArc = False
         arcspy = wordId2simplePinyin(nextStatObj['wordid'])
@@ -396,6 +406,8 @@ def arcSearch(lat, kwspy):
     '''先直接在arc序列上遍历，出现部分match之后，再到lat state net上核实'''
     for srcState, desObj in lat.iteritems():
         for desState, arcObj in desObj.iteritems():
+            if desState == STOP_DES_ID:
+                continue
             #arc 的spy
             arcSpy =  wordId2simplePinyin(arcObj['wordid'])
             needImproveThisArc = False
@@ -418,6 +430,8 @@ def latBatchImprove(lat):
     '''对每个arc，针对improve的值的大小，进行rescoring'''
     for srcState, desObj in lat.iteritems():
         for desState, arcObj in desObj.iteritems():
+            if desState == STOP_DES_ID:
+                continue
             imp = arcObj['improve']
             if imp > 0:
                 arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP*((len(wordId2word(arcObj['wordid'])))**2) #不同长度不同比重，不然会趋向于 散的词
