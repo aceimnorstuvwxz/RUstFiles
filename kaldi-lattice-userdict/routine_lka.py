@@ -6,12 +6,14 @@ LKATPM: LatticeKeywordAlign TextPhoneMapping
 '''
 
 import sys
-import jieba
+# import jieba
 import datetime
+import os
+import json
 
 gWordMap = {}
 
-AMSCORE_IMPROVE_STEP = 3.0 #lat rescore时，arc的声学提高幅度
+AMSCORE_IMPROVE_STEP = 10.0 #lat rescore时，arc的声学提高幅度
 KW_EARLY_STOP_THRESH = 20000 #当一个kw符合的次数超过一定量之后，就pass了。 only for lka
 
 with open('words.txt', 'r') as wordsf:
@@ -20,7 +22,7 @@ with open('words.txt', 'r') as wordsf:
         l = l.decode('utf-8')
         segs = l.split(' ')
         gWordMap[int(segs[1][:-1])] = segs[0] #remove \n
-    print "load word map", len(gWordMap)
+    # print "load word map", len(gWordMap)
 
 
 
@@ -40,24 +42,6 @@ def id2word(ifn,ofn):
                     outl =  wd + '   ' + line
                 fout.write(outl)
 
-def userSegment2words(text):
-    '''
-    用户输入的字符串，分词，如果词在lexicon中，则，否则分成单个字。
-    unicode
-    '''
-    ww = jieba.cut(text, cut_all=False)
-    leftww = []
-    for w in ww:
-        if gLexiconDict.has_key(w):
-            leftww.append(w)
-        else:
-            for c in w:
-                if gLexiconDict.has_key(c):
-                    leftww.append(c)
-                else:
-                    print("ERROR word not exist in lexicon %s" % c)
-    
-    return leftww
 
 def word2fullPinyin(word):
     '''
@@ -164,12 +148,6 @@ def fullPinyin2simplePinyin(pinyinlist):
         ret.append(sm + ym) #去掉声调数字
     return ret
 
-def text2simplePinyin(text):
-    ret = []
-    ww = userSegment2words(text)
-    for w in ww:
-        ret.extend(fullPinyin2simplePinyin(word2fullPinyin(w)))
-    return ret
 
 def showUniqueShengmu():
     '''查看 声母 韵母 表'''
@@ -266,7 +244,7 @@ def loadLat(latf):
     return states
             
 def saveLat(lat, fn):
-    print "saveLat", fn
+    # print "saveLat", fn
     with open(fn, 'w') as f:
         f.write('T00_001\n')
         for srcState, desObj in lat.iteritems():
@@ -435,38 +413,29 @@ def latBatchImprove(lat):
             imp = arcObj['improve']
             if imp > 0:
                 arcObj['amscore'] = arcObj['amscore'] - AMSCORE_IMPROVE_STEP*((len(wordId2word(arcObj['wordid'])))**2) #不同长度不同比重，不然会趋向于 散的词
-                print 'improve', srcState, desState, wordId2word(arcObj['wordid']), imp
+                # print 'improve', srcState, desState, wordId2word(arcObj['wordid']), imp
 
 def lka2(inlat, outlat, kws):
-    print 'lka2', inlat, outlat, kws
+    # print 'lka2', inlat, outlat, kws
     lat = loadLat(inlat)
 
-    now = datetime.datetime.now()
-
     for kw in kws:
-        kwspy = text2simplePinyin(kw)
-        arcSearch(lat, kwspy)
+        arcSearch(lat, kw['spy'])
     
     latBatchImprove(lat)
-
-    delta = datetime.datetime.now() - now
-    now = datetime.datetime.now()
-    print 'arcSearch', delta
 
     saveLat(lat, outlat)
 
 if __name__ == "__main__":
     load_lexicon_dict()
 
-    USAGE = 'lka.py input.lat output.lat kw0 kw1 kw2 kw3 ...'
-    if len(sys.argv) < 4:
-        print USAGE
-    else:
-        # lka(sys.argv[1], sys.argv[2], sys.argv[3:])
-        lka2(sys.argv[1], sys.argv[2], sys.argv[3:])
+    USAGE = 'lka.py input.lat output.lat'
+    
+    kws = []
+    if os.path.exists("userdict.json"):
+        with open('userdict.json', 'r') as f:
+            kws = json.load(f)
 
-        
-        pass
-    # showUniqueShengmu()
+    lka2(sys.argv[1], sys.argv[2], kws)
 
 

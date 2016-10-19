@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 
 '''
-LKATPM: LatticeKeywordAlign TextPhoneMapping
+TPM TextPhoneMapping
+在ASR的最终结果上进行音节mapping。
 '''
 
 import sys
-import jieba
+import os
 import datetime
+import json
 
 gWordMap = {}
 
@@ -20,7 +22,7 @@ with open('words.txt', 'r') as wordsf:
         l = l.decode('utf-8')
         segs = l.split(' ')
         gWordMap[int(segs[1][:-1])] = segs[0] #remove \n
-    print "load word map", len(gWordMap)
+    # print "load word map", len(gWordMap)
 
 
 
@@ -40,24 +42,6 @@ def id2word(ifn,ofn):
                     outl =  wd + '   ' + line
                 fout.write(outl)
 
-def userSegment2words(text):
-    '''
-    用户输入的字符串，分词，如果词在lexicon中，则，否则分成单个字。
-    unicode
-    '''
-    ww = jieba.cut(text, cut_all=False)
-    leftww = []
-    for w in ww:
-        if gLexiconDict.has_key(w):
-            leftww.append(w)
-        else:
-            for c in w:
-                if gLexiconDict.has_key(c):
-                    leftww.append(c)
-                else:
-                    print("ERROR word not exist in lexicon %s" % c)
-    
-    return leftww
 
 def word2fullPinyin(word):
     '''
@@ -164,12 +148,6 @@ def fullPinyin2simplePinyin(pinyinlist):
         ret.append(sm + ym) #去掉声调数字
     return ret
 
-def text2simplePinyin(text):
-    ret = []
-    ww = userSegment2words(text)
-    for w in ww:
-        ret.extend(fullPinyin2simplePinyin(word2fullPinyin(w)))
-    return ret
 
 def showUniqueShengmu():
     '''查看 声母 韵母 表'''
@@ -266,7 +244,7 @@ def loadLat(latf):
     return states
             
 def saveLat(lat, fn):
-    print "saveLat", fn
+    # print "saveLat", fn
     with open(fn, 'w') as f:
         f.write('T00_001\n')
         for srcState, desObj in lat.iteritems():
@@ -455,18 +433,73 @@ def lka2(inlat, outlat, kws):
 
     saveLat(lat, outlat)
 
+
+def bestlatfile2spywordlist(bestlatf):
+    with open(bestlatf, 'r') as f:
+        lines = f.readlines() #不用去掉第一行
+        spylist = []
+        wordlist = []
+        for l in lines:
+            ww = l.split('\t')
+            if len(ww) > 3:
+                wordid = int(ww[2])
+                spylist.extend(wordId2simplePinyin(wordid))
+                wordlist.extend(list(wordId2word(wordid)))
+    
+        return spylist, wordlist
+                 
+def spylistcomp(spylist, spykey):
+    #TODO 优化这个算法
+    ret = [] #允许出现多个
+    for i in xrange(len(spylist) - len(spykey) + 1):
+        gotta = True
+        for j in xrange(len(spykey)):
+            if spylist[i+j] != spykey[j]:
+                gotta = False
+                break
+        
+        if gotta:
+            ret.append(i)
+    return ret
+
+
+
+
+def tpm(bestlatf, resultf, kws):
+    '''使用1best lat，而不是最后的asr字符串，这样可以保持 分词，而不用重新分词'''
+
+    #从1best lat中 获得spy序列
+    spylist, wordlist = bestlatfile2spywordlist(bestlatf)
+
+    for kw in kws:
+        spykey = kw['spy']
+        poses = spylistcomp(spylist, spykey)
+        words = list(kw['kw'])
+        for p in poses:
+            for i in xrange(len(kw)):
+                wordlist[p+i] = words[i]
+    
+    ret =  ''.join(wordlist)
+    # print "aaa"+ret.encode("utf-8")
+    with open(resultf, 'w') as f:
+        f.write(ret.encode('utf-8'))
+
+    
+
+
+
 if __name__ == "__main__":
     load_lexicon_dict()
 
-    USAGE = 'lka.py input.lat output.lat kw0 kw1 kw2 kw3 ...'
-    if len(sys.argv) < 4:
-        print USAGE
-    else:
-        # lka(sys.argv[1], sys.argv[2], sys.argv[3:])
-        lka2(sys.argv[1], sys.argv[2], sys.argv[3:])
+    # print text2simplePinyin(u'你好啊我的哥哥')
+    # print wordId2simplePinyin(18137)
+    # print simplePinyinComp([u'a',u'b', u'd'],[u'a',u'b',u'c'])
 
-        
-        pass
-    # showUniqueShengmu()
+    USAGE = 'tpm.py 1best.lat result.txt'
+    kws = []
+    if os.path.exists("userdict.json"):
+        with open('userdict.json', 'r') as f:
+            kws = json.load(f)
+    tpm(sys.argv[1], sys.argv[2], kws)
 
 
